@@ -1,0 +1,47 @@
+[
+  {
+    "name" : "play",
+    "args" : "song name",
+    "description" : "this will search the song name on youtube and play the first result. will automatically add to queue if its not the first song"
+  },
+  {
+    "name" : "pause",
+    "description" : "Will pause the song if currently playing"
+  },
+  {
+    "name" : "resume",
+    "description" : "Will resume the song if is currently paused"
+  },
+  {
+    "name" : "next" ,
+    "description" : "Will play the next song on the queue"
+  },
+  {
+    "name" : "stop" ,
+    "description" : "Will stop the playlist"
+  },
+  {
+    "name": "queue",
+    "description" : "Will show all songs in the queue"
+  },
+  {
+    "name": "current" ,
+    "description" : "Will show the song that is currently playing"
+  },
+  {
+    "name" :  "clear",
+    "description" : "Will clear the queue"
+  },
+  {
+    "name" : "loop" ,
+    "description" : "Will toggle the loop mode on queue"
+  },
+  {
+    "name" : "join" ,
+    "description" : "Bot will enter the voice channel that you are."
+  },
+  {
+    "name" : "leave",
+    "description" : "Bot will leave the voice channel"
+  }
+]

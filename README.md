@@ -1,2 +1,2 @@
 # headBanger
-A Discord music bot made with python
+A Discord music bot with python on the making

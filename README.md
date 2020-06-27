@@ -1,3 +1,4 @@
+<h1><a href="https://discord.com/api/oauth2/authorize?client_id=724142402347991081&amp;permissions=0&amp;scope=bot">Invite the bot for your server</a></h1>
 <h1>Commands :</h1>
 <h2>play</h2>
 <h5>this will search the song name on youtube and play the first result. will automatically add to queue if its not the first song</h5>

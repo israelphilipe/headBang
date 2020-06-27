@@ -76,8 +76,8 @@ class Queue:
     def get_channel(self):
         return self.channel
 
-    def set_channel_id(self, channel_id: int):
-        self.channel_id = channel_id
+    def set_channel(self, channel):
+        self.channel = channel
 
     def get_path(self):
         return self.queue_path

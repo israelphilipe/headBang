@@ -243,4 +243,3 @@ async def commands(ctx):
 
 client.loop.create_task(next_song())
 client.run(TOKEN)
-

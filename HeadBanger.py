@@ -1,8 +1,6 @@
 import random
 import asyncio
-import youtube_dl
 import json
-import os
 import time
 from discord.ext import commands
 from discord import VoiceChannel
@@ -11,14 +9,15 @@ import discord
 from discord.errors import ClientException
 from discord.ext.commands.errors import CommandNotFound
 import os
-
-
-
+from Queue import Queue
 client = commands.Bot(command_prefix='$')
 
 TOKEN = os.environ['TOKEN']
 
-queue_path = os.path.abspath(os.path.realpath("Queues"))
+ffmpeg_options = {
+    'options': '-vn',
+}
+
 
 class YTDLSource(discord.PCMVolumeTransformer):
     def __init__(self, source, *, data, volume=0.5):
@@ -28,7 +27,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
         self.url = data.get('url')
 
     @classmethod
-    async def from_url(cls, url, *, loop=None, stream=False):
+    async def from_url(cls, url, ytdl, *, loop=None, stream=False):
         loop = loop or asyncio.get_event_loop()
         data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=not stream))
         if 'entries' in data:
@@ -47,25 +46,12 @@ enter_chat_quotes = [
     'Ready to play'
 ]
 
-queues = {
-
-}
-
-is_looping = False
-
-ffmpeg_options = {
-    'options': '-vn',
-}
-current = 0
-
-ytdl = None
-ytdl_format_options = None
+queues = {}
 
 
 @client.event
 async def on_ready():
     print('We have logged in as {0.user}'.format(client))
-
 
 
 @client.command(pass_context=True)
@@ -75,27 +61,20 @@ async def ping(ctx):
 
 @client.command(pass_context=True)
 async def join(ctx, flag=0):
+    channel = ctx.message.channel
     if ctx.message.author.voice is None or ctx.message.author.voice.channel is None:
-        await ctx.message.channel.send('You are not in a voice server')
+        await channel.send('You are not in a voice server')
         return
-    channel = ctx.message.author.voice.channel
-    await VoiceChannel.connect(channel)
+    voice_channel = ctx.author.voice.channel
+    if ctx.voice_client is None:
+        await voice_channel.connect()
+    else:
+        await ctx.voice_client.move_to(voice_channel)
     if flag == 0:
-        await ctx.message.channel.send(enter_chat_quotes[random.randint(0, len(enter_chat_quotes))-1])
-    global ytdl_format_options
-    ytdl_format_options = {
-        'format': 'bestaudio/best',
-        'outtmpl': f'./Queues/{ctx.message.guild.id}/-%(id)s.mp3',
-        'quiet': True,
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192'
-        }],
-        'default_search': 'auto',
-    }
-    global ytdl
-    ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
+        await channel.send(enter_chat_quotes[random.randint(0, len(enter_chat_quotes))-1])
+    guild_id = str(ctx.message.guild.id)
+    queues[guild_id] = Queue(channel, guild_id)
+
     return
 
 
@@ -109,27 +88,31 @@ async def leave(ctx):
 
 
 async def queue(ctx, url: str):
-    song = await YTDLSource.from_url(url, loop=client.loop)
-    await ctx.message.channel.send(f"Song {song['title']} added to the queue")
-    if len(queues) >= 50:
+    guild_id = str(ctx.message.guild.id)
+    if queues[guild_id] is None:
+        raise discord.errors.ClientException
+    song = await YTDLSource.from_url(url, queues[guild_id].get_youtube_dl(), loop=client.loop)
+    if queues[guild_id].size() >= 50:
         await ctx.message.channel.send('Queue is full, please remove an item')
         return
-    queues[len(queues)+1] = song
+    queues[guild_id].add(song)
+    await ctx.message.channel.send(f"Song {song['title']} added to the queue")
 
 
 @client.command(pass_context=True, aliases=['queue'])
 async def show_queue(ctx):
-    global current
-    global is_looping
 
-    if len(queues) == 0:
+    guild_id = str(ctx.message.guild.id)
+    if guild_id not in queues:
+        return await ctx.message.channel.send(f"```CSS\n[Oops, it does not seem that you have a queue.]\n```")
+    if queues[guild_id].size() == 0:
         return await ctx.message.channel.send(f"```CSS\n[Queue is empty]\n```")
     q = "```CSS\n"
-    for i in range(1, len(queues)+1):
-        if i == current:
-            q += '->'
-        q += f"{i} : {queues[i]['title']}\n"
-    if is_looping:
+    for i in range(0, queues[guild_id].size()):
+        if i == queues[guild_id].current_position():
+            q += '-'
+        q += f"{i+1} : {queues[guild_id].get_song(i)['title']}\n"
+    if queues[guild_id].is_looping():
         q += "[Queue in Loop]"
     q += "```"
     await ctx.message.channel.send(q)
@@ -142,65 +125,56 @@ async def play(ctx, *args):
         return
     if not ctx.message.guild.voice_client:
         await join(ctx, 1)
+    guild_id = str(ctx.message.guild.id)
     url = str(args)
     await queue(ctx, url)
-    if len(queues) == 1:
+    if queues[guild_id].size() == 1:
         await next(ctx)
 
 
-def check_current(voice_client):
-    if voice_client.is_playing() or voice_client.is_paused():
-        return
-    global current
-    if is_looping and current == len(queues):
-        current = 1
-        return
-    else:
-        current += 1
-        return
-
-
-async def nextSong(ctx=None, flag=0):
-    context = None
-    if ctx is not None:
-        context = ctx
+async def next_song(ctx=None, flag=0):
     while True:
-        if len(queues) > 0 and context is not None:
-            voice_client = context.message.guild.voice_client
-            if voice_client.is_playing() and flag == 1:
-                voice_client.stop()
-            check_current(voice_client)
-            if current > len(queues) and not voice_client.is_paused():
-                await context.message.channel.send('Done playing')
-                await stop(ctx)
-            else:
-                if not voice_client.is_playing() and not voice_client.is_paused():
-                    if queues[current] is not None:
-                        song = discord.FFmpegPCMAudio(queues[current]['file_path'], **ffmpeg_options)
-                        voice_client.play(song)
-                        await context.message.channel.send(f'Playing {queues[current]["title"]}')
-        await asyncio.sleep(0.1)
+        for voice_client in client.voice_clients:
+            guild_id = str(voice_client.guild.id)
+            if guild_id not in queues:
+                return
+            q = queues[guild_id]
+            if q.size() == 0:
+                continue
+            if ctx is not None:
+                if voice_client.is_playing() and flag == 1 and voice_client == ctx.message.guild.voice_client:
+                    voice_client.stop()
+            if not voice_client.is_playing() and not voice_client.is_paused():
+                if not q.is_looping() and q.size() == q.current_position():
+                    await ctx.message.channel.send('Done playing')
+                    await stop(ctx)
+                else:
+                    song = discord.FFmpegPCMAudio(q.next()['file_path'], **ffmpeg_options)
+                    voice_client.play(song)
+                    await q.get_channel().send(f'Playing {q.current_song()["title"]}')
+        await asyncio.sleep(0.5)
         flag = 0
 
 
 @client.command(pass_context=True)
 async def next(ctx):
-    await nextSong(ctx, 1)
+    await next_song(ctx, 1)
 
 
 @client.command(pass_context=True)
 async def loop(ctx):
-    global is_looping
-    is_looping = not is_looping
-    msg = "Started" if is_looping else "Stopped"
+    guild_id = str(ctx.message.guild.id)
+    msg = "Started" if queues[guild_id].toggle_loop() else "Stopped"
     return await ctx.message.channel.send(f'```CSS\n{msg} looping queue\n```')
 
 
-@client.command(pass_context=True,aliases=['current'])
+@client.command(pass_context=True, aliases=['current'])
 async def current_in_queue(ctx):
-    if len(queues) == 0:
+    guild_id = ctx.message.guild.id
+    if queues[guild_id] == 0:
         return await ctx.message.channel.send(f"```CSS\n[Queue is empty]\n```")
-    await ctx.message.channel.send('```Current song in queue: {}```'.format(queues[current]['title']))
+    await ctx.message.channel.send('```Current song in queue: {}```'
+                                   .format(queues[guild_id].get_current_song()['title']))
 
 
 @client.command(pass_context=True)
@@ -220,20 +194,15 @@ async def stop(ctx):
     if voice_client:
         voice_client.stop()
     await clear(ctx)
+    await ctx.message.channel.send('Done playing')
     return
 
 
 @client.command(pass_context=True)
 async def clear(ctx):
-    queues.clear()
-    await asyncio.sleep(1)
-    try:
-        shutil.rmtree(queue_path+"/"+str(ctx.guild.id), ignore_errors=True)
-        print('Cleared folder')
-    except:
-        print(queue_path)
-    global current
-    current = 0
+    guild_id = str(ctx.message.guild.id)
+    if guild_id in queues:
+        queues[guild_id].clear()
     return
 
 
@@ -255,7 +224,9 @@ async def on_command_error(ctx, error):
         await ctx.message.channel.send('Sorry, this command does not exist.')
         return
     await stop(ctx)
+    await ctx.message.channel.send('Oops. Something went wrong')
     raise error
+
 
 @client.command(pass_context=True)
 async def commands(ctx):
@@ -270,6 +241,6 @@ async def commands(ctx):
     await ctx.message.channel.send(commands)
     return
 
-client.loop.create_task(nextSong())
+client.loop.create_task(next_song())
 client.run(TOKEN)
 

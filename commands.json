@@ -1,7 +1,7 @@
 [
   {
     "name" : "play",
-    "args" : "song name",
+    "args" : "song name or index of song to be played",
     "description" : "this will search the song name on youtube and play the first result. will automatically add to queue if its not the first song"
   },
   {
@@ -43,5 +43,10 @@
   {
     "name" : "leave",
     "description" : "Bot will leave the voice channel"
+  },
+  {
+    "name" : "remove",
+    "args" : "Song position",
+    "description" : "Will remove the song from the given position"
   }
 ]

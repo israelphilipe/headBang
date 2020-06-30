@@ -13,7 +13,7 @@ def create_commands_md():
     string += "# Commands :\n"
     with open("README.md", "w", encoding="utf-8", errors="xmlcharrefreplace") as output_file:
         for command in commands_json:
-            string += f"## {command['name']}\n##### {command['description']}\n"
+            string += f"## ${command['name']}\n##### {command['description']}\n"
             if 'args' in command:
                 string += f"* Arguments : {command['args']}\n"
         md = markdown.markdown(string)

@@ -26,10 +26,20 @@ class Queue:
         self.channel = channel
 
     def add(self, song: dict):
+        if song['id'] in self.queue:
+            return False
         self.queue[song['id']] = song
+        return song
 
-    def remove(self, song: dict):
-        del self.queue[song['id']]
+    def remove_from_pos(self, pos: int):
+
+        if pos < 0 or pos >= self.size():
+            return False
+        song_id = list(self.queue)[pos]
+        del self.queue[song_id]
+        if pos <= self.current:
+            self.current -= 1
+        return self.current
 
     def size(self):
         return len(self.queue)
@@ -81,3 +91,9 @@ class Queue:
 
     def get_path(self):
         return self.queue_path
+
+    def jump_to(self, pos: int):
+        if pos < 0 or pos >= self.size():
+            return False
+        self.current = pos
+        return self.current_song()

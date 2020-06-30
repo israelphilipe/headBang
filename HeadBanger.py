@@ -95,8 +95,10 @@ async def queue(ctx, url: str):
     if queues[guild_id].size() >= 50:
         await ctx.message.channel.send('Queue is full, please remove an item')
         return
-    queues[guild_id].add(song)
-    await ctx.message.channel.send(f"Song {song['title']} added to the queue")
+    msg = f"Song {song['title']} added to the queue"
+    if not queues[guild_id].add(song):
+        msg = f"Song already in queue"
+    await ctx.message.channel.send(msg)
 
 
 @client.command(pass_context=True, aliases=['queue'])
@@ -126,10 +128,42 @@ async def play(ctx, *args):
     if not ctx.message.guild.voice_client:
         await join(ctx, 1)
     guild_id = str(ctx.message.guild.id)
-    url = str(args)
-    await queue(ctx, url)
-    if queues[guild_id].size() == 1:
-        await next(ctx)
+    url = " ".join(str(x) for x in args)
+    q = queues[guild_id]
+    if url.isnumeric():
+        if int(url) > queues[guild_id].size():
+            await ctx.message.channel.send("Invalid position, please check the queue")
+            return
+        queues[guild_id].jump_to(int(url)-1)
+        song = discord.FFmpegPCMAudio(q.current_song()['file_path'], **ffmpeg_options)
+        voice_client = ctx.message.guild.voice_client
+        if voice_client.is_playing() or voice_client.is_paused():
+            voice_client.stop()
+        voice_client.play(song)
+        await q.get_channel().send(f'Playing {q.current_song()["title"]}')
+    else:
+        await queue(ctx, url)
+        if q.size() == 1:
+            await next(ctx)
+
+
+@client.command(pass_context=True)
+async def remove(ctx, *args):
+    guild_id = str(ctx.message.guild.id)
+    q = queues[guild_id]
+    url = " ".join(str(x) for x in args)
+    if url.isnumeric():
+        index = int(url) - 1
+        song = q.current_song()
+        old = q.current_position()
+        current = q.remove_from_pos(index)
+        if current is False:
+            return await ctx.message.channel.send("Invalid index")
+        await ctx.message.channel.send(song['title']+" removed")
+        if q.size() == 0:
+            return await stop(ctx)
+        if index == old or current == -1:
+            return await next(ctx)
 
 
 async def next_song(ctx=None, flag=0):

@@ -3,7 +3,7 @@
 <h2>$play</h2>
 <h5>this will search the song name on youtube and play the first result. will automatically add to queue if its not the first song</h5>
 <ul>
-<li>Arguments : song name</li>
+<li>Arguments : song name or index of song to be played</li>
 </ul>
 <h2>$pause</h2>
 <h5>Will pause the song if currently playing</h5>
@@ -25,3 +25,8 @@
 <h5>Bot will enter the voice channel that you are.</h5>
 <h2>$leave</h2>
 <h5>Bot will leave the voice channel</h5>
+<h2>$remove</h2>
+<h5>Will remove the song from the given position</h5>
+<ul>
+<li>Arguments : Song position</li>
+</ul>

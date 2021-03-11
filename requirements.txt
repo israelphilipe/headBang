@@ -1,3 +1,4 @@
 youtube_dl
 pyNaCl
 discord.py[voice]
+markdown

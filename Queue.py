@@ -13,14 +13,27 @@ class Queue:
         ytdl_format_options = {
             'format': 'bestaudio/best',
             'outtmpl': f'./Queues/{self.guild_id}/%(id)s.mp3',
+            'restrictfilenames': True,
+            'noplaylist': True,
+            'nocheckcertificate': True,
+            'ignoreerrors': False,
+            'logtostderr': False,
             'quiet': True,
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '192'
-            }],
+            'no_warnings': True,
             'default_search': 'auto',
+            'source_address': '0.0.0.0'  # ipv6 addresses cause issues sometimes
         }
+        # ytdl_format_options = {
+        #     'format': 'bestaudio/best',
+        #     'outtmpl': f'./Queues/{self.guild_id}/%(id)s.mp3',
+        #     'quiet': True,
+        #     'postprocessors': [{
+        #         'key': 'FFmpegExtractAudio',
+        #         'preferredcodec': 'mp3',
+        #         'preferredquality': '192'
+        #     }],
+        #     'default_search': 'auto',
+        # }
         self.ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
         self.queue_path = os.path.abspath(os.path.realpath(f'./Queues/{self.guild_id}'))
         self.channel = channel

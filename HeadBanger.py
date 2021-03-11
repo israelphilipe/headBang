@@ -11,13 +11,13 @@ from discord.ext.commands.errors import CommandNotFound
 import os
 from Queue import Queue
 client = commands.Bot(command_prefix='$')
-
+client.remove_command('help')
 TOKEN = os.environ['TOKEN']
 
 ffmpeg_options = {
-    'options': '-vn',
+    'before_options': '-nostdin',
+    'options': '-vn'
 }
-
 
 class YTDLSource(discord.PCMVolumeTransformer):
     def __init__(self, source, *, data, volume=0.5):
@@ -101,7 +101,7 @@ async def queue(ctx, url: str):
     await ctx.message.channel.send(msg)
 
 
-@client.command(pass_context=True, aliases=['queue'])
+@client.command(pass_context=True, aliases=['queue','q'])
 async def show_queue(ctx):
 
     guild_id = str(ctx.message.guild.id)
@@ -120,7 +120,7 @@ async def show_queue(ctx):
     await ctx.message.channel.send(q)
 
 
-@client.command(pass_context=True)
+@client.command(pass_context=True, aliases=['p'])
 async def play(ctx, *args):
     if len(args) == 0:
         await ctx.message.channel.send('No music given.Type $play + name of the music to play')
@@ -204,11 +204,12 @@ async def loop(ctx):
 
 @client.command(pass_context=True, aliases=['current'])
 async def current_in_queue(ctx):
-    guild_id = ctx.message.guild.id
+
+    guild_id = str(ctx.message.guild.id)
     if queues[guild_id] == 0:
         return await ctx.message.channel.send(f"```CSS\n[Queue is empty]\n```")
     await ctx.message.channel.send('```Current song in queue: {}```'
-                                   .format(queues[guild_id].get_current_song()['title']))
+                                   .format(queues[guild_id].current_song()['title']))
 
 
 @client.command(pass_context=True)
@@ -262,7 +263,7 @@ async def on_command_error(ctx, error):
     raise error
 
 
-@client.command(pass_context=True)
+@client.command(pass_context=True, aliases=['help'])
 async def commands(ctx):
     file = open("commands.json")
     commands_json = json.load(file)
@@ -274,6 +275,7 @@ async def commands(ctx):
     commands += "```"
     await ctx.message.channel.send(commands)
     return
+
 
 client.loop.create_task(next_song())
 client.run(TOKEN)
